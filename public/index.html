@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HACKNET // BATTLE</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap');
+:root{
+  --g:#00ff41;--dg:#00bb30;--bg:#010901;--panel:#040d04;
+  --border:#0f2a0f;--red:#ff2244;--orange:#ff8c00;
+  --yellow:#ffe600;--cyan:#00ffe0;--dim:#1a3a1a;--pink:#ff44cc;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--g);font-family:'Share Tech Mono',monospace;font-size:13px}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,255,65,.012) 2px,rgba(0,255,65,.012) 4px);
+  animation:flicker 10s infinite}
+@keyframes flicker{0%,100%{opacity:1}93%{opacity:.88}95%{opacity:1}97%{opacity:.92}98%{opacity:1}}
+
+/* SCREENS */
+#lobby,#gameover,#winscreen{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;z-index:200;background:var(--bg)}
+#app{display:none;height:100vh;flex-direction:column}
+
+/* LOBBY */
+.lb-box{border:1px solid var(--border);background:var(--panel);padding:36px 40px;width:480px;max-width:95vw}
+.lb-logo{font-family:'Orbitron',sans-serif;font-weight:900;font-size:30px;letter-spacing:8px;color:var(--g);text-shadow:0 0 30px var(--g),0 0 60px rgba(0,255,65,.3);text-align:center}
+.lb-logo span{color:var(--red);text-shadow:0 0 30px var(--red)}
+.lb-sub{font-size:10px;color:var(--dg);letter-spacing:4px;text-align:center;margin-bottom:24px}
+.lb-label{font-size:10px;color:var(--dg);letter-spacing:2px;margin-bottom:5px}
+.lb-input{width:100%;background:transparent;border:1px solid var(--dim);color:var(--cyan);font-family:'Share Tech Mono',monospace;font-size:14px;padding:10px 12px;outline:none;margin-bottom:14px;transition:.2s}
+.lb-input:focus{border-color:var(--g);box-shadow:0 0 10px rgba(0,255,65,.2)}
+.lb-btn{width:100%;background:rgba(0,255,65,.06);border:1px solid var(--g);color:var(--g);font-family:'Orbitron',sans-serif;font-size:12px;letter-spacing:4px;padding:12px;cursor:pointer;transition:.2s;text-shadow:0 0 8px var(--g)}
+.lb-btn:hover{background:rgba(0,255,65,.14);box-shadow:0 0 20px rgba(0,255,65,.3)}
+.lb-btn:disabled{opacity:.3;cursor:not-allowed}
+#lb-status{font-size:11px;min-height:18px;text-align:center;letter-spacing:1px;margin-top:8px;color:var(--dg)}
+#lb-roster{min-height:36px;border:1px solid var(--dim);padding:8px 10px;font-size:11px;line-height:1.9;margin:10px 0;color:var(--dim)}
+#lb-start{display:none;margin-top:6px;border-color:var(--yellow);color:var(--yellow);text-shadow:0 0 8px var(--yellow)}
+#lb-start:hover{background:rgba(255,230,0,.1);box-shadow:0 0 20px rgba(255,230,0,.3)}
+.lb-info{font-size:10px;color:#1a2f1a;line-height:1.9;text-align:center;margin-top:10px}
+
+/* HEADER */
+#hdr{display:flex;align-items:center;justify-content:space-between;padding:7px 16px;border-bottom:1px solid var(--border);background:var(--panel);flex-shrink:0}
+.hdr-logo{font-family:'Orbitron',sans-serif;font-weight:900;font-size:17px;letter-spacing:5px;color:var(--g);text-shadow:0 0 14px var(--g)}
+.hdr-logo span{color:var(--red);text-shadow:0 0 14px var(--red)}
+#hdr-meta{font-size:10px;color:var(--dg);letter-spacing:1px;text-align:center;line-height:1.7}
+#hdr-timer{font-family:'Orbitron',sans-serif;font-size:20px;color:var(--yellow);text-shadow:0 0 10px var(--yellow)}
+
+/* GRID */
+#grid{display:grid;grid-template-columns:210px 1fr 290px;flex:1;min-height:0;overflow:hidden}
+.panel{border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;background:var(--panel)}
+.panel:last-child{border-right:none}
+.ptitle{font-family:'Orbitron',sans-serif;font-size:9px;letter-spacing:3px;color:var(--dg);padding:6px 11px;border-bottom:1px solid var(--border);background:rgba(0,255,65,.03);flex-shrink:0}
+.pbody{padding:9px;overflow-y:auto;flex:1}
+.pbody::-webkit-scrollbar{width:3px}
+.pbody::-webkit-scrollbar-thumb{background:var(--dim)}
+
+/* MAP */
+#map-wrap{height:155px;flex-shrink:0;border-bottom:1px solid var(--border)}
+#net-cv{width:100%;height:100%;display:block}
+
+/* NODE CARDS */
+.nc{border:1px solid var(--dim);padding:7px 9px;margin-bottom:5px;cursor:pointer;transition:.15s;position:relative;background:rgba(0,255,65,.015)}
+.nc:hover:not(.nc-me):not(.nc-dead){border-color:var(--orange);background:rgba(255,140,0,.07);box-shadow:0 0 8px rgba(255,140,0,.18)}
+.nc.nc-me{border-color:var(--cyan);background:rgba(0,255,224,.05);cursor:default}
+.nc.nc-dead{opacity:.22;cursor:default;filter:saturate(0)}
+.nc.nc-tgt{border-color:var(--red);animation:pr .7s infinite alternate}
+@keyframes pr{from{box-shadow:0 0 3px rgba(255,34,68,.4)}to{box-shadow:0 0 14px rgba(255,34,68,.9),inset 0 0 8px rgba(255,34,68,.05)}}
+.nc-alias{font-family:'Orbitron',sans-serif;font-size:10px;letter-spacing:2px;margin-bottom:2px}
+.nc-ip{font-size:9px;color:var(--dg);margin-bottom:4px}
+.hbar{height:3px;background:#061206;border-radius:1px;overflow:hidden;margin-bottom:2px}
+.hfill{height:100%;border-radius:1px;transition:width .4s}
+.nc-stats{font-size:9px;color:var(--dg);display:flex;justify-content:space-between}
+.nc-badge{position:absolute;top:4px;right:5px;font-size:8px;padding:1px 4px;border-radius:1px;letter-spacing:1px}
+.tag-you{background:var(--cyan);color:#000}
+.tag-dead{background:#200;color:var(--red)}
+.tag-tgt{background:var(--red);color:#fff}
+
+/* TERMINAL */
+#term-panel{display:flex;flex-direction:column;border-right:1px solid var(--border)}
+#term-out{flex:1;padding:10px 14px;overflow-y:auto;font-size:12.5px;line-height:1.75;min-height:0}
+#term-out::-webkit-scrollbar{width:3px}
+#term-out::-webkit-scrollbar-thumb{background:var(--dim)}
+.tl{display:block;word-break:break-all}
+.tc{color:var(--cyan)}.tok{color:var(--g)}.twarn{color:var(--orange)}.terr{color:var(--red)}
+.tinfo{color:var(--yellow)}.tsys{color:var(--dg)}.thack{color:var(--pink)}.thex{color:#006633;font-size:11px}
+#hint-bar{padding:4px 14px;font-size:10px;color:var(--dim);border-top:1px solid var(--border);background:rgba(0,255,65,.015);min-height:22px;flex-shrink:0}
+#term-in{border-top:1px solid var(--border);display:flex;align-items:center;gap:8px;padding:8px 12px;background:rgba(0,255,65,.02);flex-shrink:0}
+#prompt{color:var(--dg);white-space:nowrap;font-size:12px;flex-shrink:0}
+#cmd{flex:1;background:transparent;border:none;outline:none;color:var(--cyan);font-family:'Share Tech Mono',monospace;font-size:13px;caret-color:var(--g)}
+
+/* HACK MODAL */
+#hack-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.94);z-index:500;align-items:center;justify-content:center;flex-direction:column;gap:14px}
+#hack-modal.show{display:flex}
+#hm-title{font-family:'Orbitron',sans-serif;font-size:15px;letter-spacing:4px;color:var(--orange);text-shadow:0 0 20px var(--orange)}
+#hm-log{width:540px;max-width:92vw;height:185px;overflow-y:auto;padding:11px;border:1px solid var(--border);background:var(--panel);font-size:11.5px;line-height:1.8}
+.hm-bwrap{width:540px;max-width:92vw;height:9px;background:#061206;border:1px solid var(--border);border-radius:2px;overflow:hidden}
+#hm-bar{height:100%;background:linear-gradient(90deg,var(--red),var(--orange));width:0%;box-shadow:0 0 8px var(--red)}
+#hm-stat{font-size:10px;color:var(--dg);letter-spacing:2px}
+
+/* RIGHT PANEL */
+#rp{display:flex;flex-direction:column;overflow:hidden}
+.rblock{border-bottom:1px solid var(--border);padding:9px 10px;flex-shrink:0}
+.rlabel{font-size:9px;letter-spacing:3px;color:var(--dg);margin-bottom:6px}
+.mbar-row{display:flex;align-items:center;gap:6px;margin-bottom:4px;font-size:10px}
+.mbar-track{flex:1;height:6px;background:#061206;border-radius:2px;overflow:hidden;border:1px solid var(--dim)}
+.mbar-fill{height:100%;border-radius:2px;transition:width .3s}
+#ef{background:linear-gradient(90deg,#0033aa,#0088ff)}
+#sf{background:linear-gradient(90deg,#003319,var(--g))}
+#tgt-box{background:rgba(255,34,68,.03);border:1px solid var(--border);padding:8px;margin-bottom:7px;text-align:center;min-height:42px}
+#tgt-alias{font-family:'Orbitron',sans-serif;font-size:13px;color:var(--red)}
+#tgt-meta{font-size:9px;color:var(--dg);margin-top:2px}
+.atk{width:100%;background:rgba(0,255,65,.03);border:1px solid var(--dim);color:var(--g);font-family:'Share Tech Mono',monospace;font-size:11px;padding:7px 9px;margin-bottom:5px;cursor:pointer;text-align:left;transition:.15s;line-height:1.5;position:relative;overflow:hidden}
+.atk:hover:not(:disabled){border-color:var(--orange);background:rgba(255,140,0,.08);color:var(--orange)}
+.atk:disabled{opacity:.25;cursor:not-allowed}
+.atk .atop{display:flex;justify-content:space-between}
+.atk .aname{color:var(--yellow);font-size:11px;letter-spacing:1px}
+.atk .acost{color:var(--cyan);font-size:10px}
+.atk .adesc{color:#335533;font-size:10px;margin-top:1px}
+.cd-bar{position:absolute;bottom:0;left:0;height:2px;background:var(--orange);width:0%}
+
+/* PACKET CANVAS */
+#pkt-wrap{height:55px;border-bottom:1px solid var(--border);flex-shrink:0;position:relative;overflow:hidden}
+#pkt-cv{width:100%;height:100%;display:block}
+.pkt-lbl{position:absolute;top:0;left:0;right:0;font-family:'Orbitron',sans-serif;font-size:9px;letter-spacing:3px;color:var(--dg);padding:5px 10px;pointer-events:none}
+
+/* FEED */
+#feed{flex:1;overflow-y:auto;padding:8px 9px;font-size:10px;line-height:1.85}
+#feed::-webkit-scrollbar{width:3px}
+#feed::-webkit-scrollbar-thumb{background:var(--dim)}
+.fi{border-bottom:1px solid #050e05;padding:2px 0}
+.ftime{color:#152515}
+
+/* END SCREENS */
+#go-title{font-family:'Orbitron',sans-serif;font-weight:900;font-size:clamp(48px,11vw,105px);color:var(--red);letter-spacing:6px;text-shadow:0 0 50px var(--red),0 0 100px var(--red);animation:gp .9s infinite alternate;text-align:center}
+@keyframes gp{from{text-shadow:0 0 40px var(--red)}to{text-shadow:0 0 100px var(--red),0 0 200px var(--red)}}
+#go-scan{position:fixed;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(255,0,0,.05) 2px,rgba(255,0,0,.05) 4px)}
+#win-title{font-family:'Orbitron',sans-serif;font-weight:900;font-size:clamp(36px,9vw,88px);color:var(--g);letter-spacing:5px;text-shadow:0 0 50px var(--g);animation:wp .9s infinite alternate;text-align:center}
+@keyframes wp{from{text-shadow:0 0 40px var(--g)}to{text-shadow:0 0 90px var(--g),0 0 180px var(--g)}}
+.end-sub{font-family:'Orbitron',sans-serif;font-size:14px;color:var(--orange);letter-spacing:3px;text-align:center}
+.end-tiny{font-size:11px;color:#222;letter-spacing:2px;text-align:center}
+.end-btn{background:transparent;border:1px solid var(--dg);color:var(--dg);font-family:'Share Tech Mono',monospace;font-size:12px;padding:9px 24px;cursor:pointer;letter-spacing:3px;margin-top:6px}
+.end-btn:hover{border-color:var(--g);color:var(--g)}
+</style>
+</head>
+<body>
+
+<!-- LOBBY -->
+<div id="lobby">
+  <div class="lb-box">
+    <div class="lb-logo">HACK<span>NET</span></div>
+    <div class="lb-sub">// BATTLE ARENA — MULTIPLAYER //</div>
+    <div class="lb-label">► HACKER ALIAS</div>
+    <input class="lb-input" id="lb-alias" placeholder="e.g. GH0ST_R00T" maxlength="14" autocomplete="off" spellcheck="false">
+    <button class="lb-btn" id="lb-join" onclick="doJoin()">[ JOIN SESSION ]</button>
+    <div id="lb-status"></div>
+    <div id="lb-roster">Waiting for players...</div>
+    <button class="lb-btn" id="lb-start" onclick="sendMsg({type:'startGame'})">[ LAUNCH BATTLE — HOST ONLY ]</button>
+    <div class="lb-info">
+      Share the URL with other players — first to join becomes host<br>
+      Host clicks LAUNCH BATTLE when everyone is ready
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div id="hdr">
+    <div class="hdr-logo">HACK<span>NET</span> <span style="font-size:12px;color:var(--dg)">// LIVE</span></div>
+    <div id="hdr-meta">
+      <div>NODE: <span id="hdr-ip" style="color:var(--cyan)">--</span></div>
+      <div style="color:var(--g)">● CONNECTED</div>
+    </div>
+    <div id="hdr-timer">00:00</div>
+  </div>
+  <div id="grid">
+    <!-- LEFT: map + node cards -->
+    <div class="panel">
+      <div class="ptitle">► SUBNET MAP</div>
+      <div id="map-wrap"><canvas id="net-cv"></canvas></div>
+      <div class="ptitle">► ACTIVE NODES</div>
+      <div class="pbody" id="nc-list"></div>
+    </div>
+    <!-- CENTER: terminal -->
+    <div id="term-panel">
+      <div class="ptitle" style="display:flex;justify-content:space-between">
+        <span>► SHELL // <span id="term-user" style="color:var(--cyan)"></span></span>
+        <span style="color:var(--dim)">TAB=complete  ↑↓=history</span>
+      </div>
+      <div id="term-out"></div>
+      <div id="hint-bar"></div>
+      <div id="term-in">
+        <span id="prompt"></span>
+        <input id="cmd" autocomplete="off" spellcheck="false">
+      </div>
+    </div>
+    <!-- RIGHT: stats + attacks + feed -->
+    <div id="rp">
+      <div class="ptitle">► EXPLOIT TOOLKIT</div>
+      <div class="rblock">
+        <div class="rlabel">NODE STATUS</div>
+        <div class="mbar-row"><span style="width:46px;color:var(--dg)">ENERGY</span><div class="mbar-track"><div class="mbar-fill" id="ef" style="width:100%"></div></div><span id="ev" style="width:28px;text-align:right">100</span></div>
+        <div class="mbar-row"><span style="width:46px;color:var(--dg)">SHIELD</span><div class="mbar-track"><div class="mbar-fill" id="sf" style="width:100%"></div></div><span id="sv" style="width:28px;text-align:right">100</span></div>
+        <div style="font-size:10px;color:var(--dg);margin-top:3px">HP:<span id="hpv" style="color:var(--g)">100</span> &nbsp;KILLS:<span id="kv" style="color:var(--yellow)">0</span> &nbsp;ARM:<span id="armv" style="color:var(--orange)">1</span></div>
+      </div>
+      <div class="rblock">
+        <div class="rlabel">TARGET NODE</div>
+        <div id="tgt-box">
+          <div style="font-size:10px;color:var(--dim)">CLICK A NODE TO TARGET</div>
+          <div id="tgt-alias">—</div>
+          <div id="tgt-meta"></div>
+        </div>
+        <div id="atk-btns"></div>
+      </div>
+      <div id="pkt-wrap">
+        <div class="pkt-lbl">► PACKET STREAM</div>
+        <canvas id="pkt-cv"></canvas>
+      </div>
+      <div class="ptitle">► ACTIVITY LOG</div>
+      <div id="feed"></div>
+    </div>
+  </div>
+</div>
+
+<!-- HACK MODAL -->
+<div id="hack-modal">
+  <div id="hm-title"></div>
+  <div id="hm-log"></div>
+  <div class="hm-bwrap"><div id="hm-bar"></div></div>
+  <div id="hm-stat">INITIATING...</div>
+</div>
+
+<!-- GAME OVER -->
+<div id="gameover" style="display:none">
+  <div id="go-scan"></div>
+  <div id="go-title">GAME OVER</div>
+  <div class="end-sub" id="go-sub"></div>
+  <div class="end-tiny">// SYS ERROR 0x4F56455244 — PROCESS KILLED //</div>
+  <button class="end-btn" onclick="location.reload()">[ RECONNECT ]</button>
+</div>
+
+<!-- WIN -->
+<div id="winscreen" style="display:none">
+  <div id="win-title">SYSTEM<br>OVERRIDE</div>
+  <div class="end-sub" id="win-sub"></div>
+  <div class="end-tiny">// ALL NODES COMPROMISED //</div>
+  <button class="end-btn" onclick="location.reload()">[ NEW SESSION ]</button>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════
+//  STATE
+// ════════════════════════════════════════════════════════════
+const S = {
+  ws: null, myId: null, myAlias: '', myIp: '',
+  players: {}, target: null,
+  eliminated: false, isHost: false,
+  timerStart: null, timerInterval: null,
+  cmdHistory: [], histIdx: -1,
+  atkCooldowns: {},
+};
+
+const ATKS = [
+  { id:'probe',   name:'PORT SCAN',      cmd:'nmap',     cost:8,  dmg:'6-12',  cd:3  },
+  { id:'sqli',    name:'SQL INJECTION',  cmd:'sqlmap',   cost:20, dmg:'14-22', cd:6  },
+  { id:'bof',     name:'BUFFER OVERFLOW',cmd:'exploit',  cost:35, dmg:'22-38', cd:10 },
+  { id:'ddos',    name:'DDoS FLOOD',     cmd:'flood',    cost:22, dmg:'10-18', cd:8  },
+  { id:'mitm',    name:'MiTM INTERCEPT', cmd:'arpspoof', cost:30, dmg:'18-30', cd:9  },
+  { id:'rootkit', name:'ROOTKIT DEPLOY', cmd:'implant',  cost:60, dmg:'35-55', cd:20 },
+];
+const ATK_MAP = Object.fromEntries(ATKS.map(a=>[a.id,a]));
+const CMD_MAP = {nmap:'probe',sqlmap:'sqli',exploit:'bof',flood:'ddos',arpspoof:'mitm',implant:'rootkit'};
+const HINTS = {
+  nmap:    'nmap -sV <ip>          PORT SCAN      8⚡',
+  sqlmap:  'sqlmap -u <ip>/login   SQL INJECTION 20⚡',
+  exploit: 'exploit --target <ip>  BUF OVERFLOW  35⚡',
+  flood:   'flood --type syn <ip>  DDoS FLOOD    22⚡',
+  arpspoof:'arpspoof -t <ip>       MiTM INTERCEPT 30⚡',
+  implant: 'implant --host <ip>    ROOTKIT       60⚡',
+  target:  'target <alias>  —  lock a node as your target',
+  whois:   'whois <alias>  —  profile a node',
+  chat:    'chat <message>  —  broadcast to all players',
+  scan:    'scan  —  list all active nodes with stats',
+};
+
+// ════════════════════════════════════════════════════════════
+//  WEBSOCKET
+// ════════════════════════════════════════════════════════════
+function doJoin() {
+  const alias = document.getElementById('lb-alias').value.trim().toUpperCase() || 'H4CK3R';
+  S.myAlias = alias;
+  document.getElementById('lb-join').disabled = true;
+  setLobbyStatus('Connecting...', 'var(--yellow)');
+
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const url = proto + '//' + location.host;
+
+  try { S.ws = new WebSocket(url); }
+  catch(e) { setLobbyStatus('Connection failed.', 'var(--red)'); document.getElementById('lb-join').disabled=false; return; }
+
+  S.ws.onopen = () => {
+    setLobbyStatus('Connected — joining...', 'var(--g)');
+    sendMsg({ type:'join', alias });
+  };
+  S.ws.onmessage = e => { try { onMsg(JSON.parse(e.data)); } catch(err) { console.error(err); } };
+  S.ws.onclose = () => { setLobbyStatus('Disconnected.', 'var(--red)'); document.getElementById('lb-join').disabled=false; };
+  S.ws.onerror = () => { setLobbyStatus('Could not reach server.', 'var(--red)'); document.getElementById('lb-join').disabled=false; };
+}
+
+function sendMsg(obj) {
+  if (S.ws?.readyState === WebSocket.OPEN) S.ws.send(JSON.stringify(obj));
+}
+
+// ════════════════════════════════════════════════════════════
+//  MESSAGE HANDLER
+// ════════════════════════════════════════════════════════════
+function onMsg(msg) {
+  switch(msg.type) {
+    case 'welcome':
+      S.myId = msg.id;
+      break;
+
+    case 'playerJoined':
+      addRoster(msg.alias, msg.ip, msg.isHost);
+      if (msg.id === S.myId && msg.isHost) {
+        S.isHost = true;
+        document.getElementById('lb-start').style.display = 'block';
+      }
+      setLobbyStatus(msg.alias + ' joined', 'var(--g)');
+      break;
+
+    case 'playerLeft':
+      setLobbyStatus(msg.alias + ' disconnected', 'var(--orange)');
+      break;
+
+    case 'gameStarted':
+      launch(msg.players);
+      break;
+
+    case 'gameState':
+      if (document.getElementById('app').style.display !== 'none') {
+        updateState(msg.players, msg.startTime);
+      }
+      break;
+
+    case 'hackBegin':
+      showHackModal(msg);
+      break;
+
+    case 'attackResult':
+      onAttackResult(msg);
+      break;
+
+    case 'playerEliminated':
+      onEliminated(msg);
+      break;
+
+    case 'youEliminated':
+      triggerGameOver(msg.killerAlias);
+      break;
+
+    case 'gameOver':
+      if (msg.winnerId === S.myId) triggerWin(msg.winnerAlias);
+      else tLine('tinfo', '◆ GAME OVER — ' + msg.winnerAlias + ' wins!');
+      break;
+
+    case 'chat':
+      addFeed('<span style="color:var(--cyan)">' + msg.alias + ':</span> ' + esc(msg.text));
+      tLine('thack', '[CHAT|' + msg.alias + ']: ' + msg.text);
+      break;
+
+    case 'cooldownError':
+      tLine('twarn', '⚠ Cooldown: ' + msg.remaining + 's remaining');
+      break;
+
+    case 'energyError':
+      tLine('terr', '✘ Need ' + msg.need + '⚡ have ' + msg.have + '⚡');
+      break;
+
+    case 'error':
+      tLine('terr', '✘ ' + msg.msg);
+      break;
+
+    case 'gameReset':
+      location.reload();
+      break;
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+//  LOBBY UI
+// ════════════════════════════════════════════════════════════
+function setLobbyStatus(msg, color) {
+  const el = document.getElementById('lb-status');
+  el.textContent = msg; el.style.color = color;
+}
+function addRoster(alias, ip, isHost) {
+  const el = document.getElementById('lb-roster');
+  if (el.textContent === 'Waiting for players...') el.innerHTML = '';
+  el.innerHTML += '<span style="color:var(--g)">► ' + alias + '</span> <span style="color:var(--dg)">[' + ip + ']</span>' + (isHost ? ' <span style="color:var(--yellow)">[HOST]</span>' : '') + '<br>';
+}
+
+// ════════════════════════════════════════════════════════════
+//  GAME LAUNCH
+// ════════════════════════════════════════════════════════════
+function launch(players) {
+  document.getElementById('lobby').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+
+  const me = players.find(p => p.id === S.myId);
+  if (me) {
+    S.myIp = me.ip;
+    document.getElementById('hdr-ip').textContent = me.ip;
+    document.getElementById('term-user').textContent = me.alias + '@' + me.ip;
+    document.getElementById('prompt').textContent = me.alias.toLowerCase() + '@hacknet:~$ ';
+  }
+
+  updateState(players, Date.now());
+  buildAtkButtons();
+  startTimer(Date.now());
+  initNetCanvas();
+  initPktCanvas();
+  wireTerminal();
+
+  const boot = [
+    ['tsys','╔══════════════════════════════════════════╗'],
+    ['tsys','║     HACKNET BATTLE ARENA  — LIVE         ║'],
+    ['tsys','╚══════════════════════════════════════════╝'],
+    ['tok', 'IP: ' + (me?.ip || '?') + '  MAC: ' + rMac()],
+    ['tok', 'Session live — ' + players.length + ' nodes online'],
+    ['tsys','──────────────────────────────────────────────'],
+    ['tok', '► Click any node card to lock as target'],
+    ['tok', '► Use exploit buttons or type attack commands'],
+    ['tok', '► Tab autocomplete  ·  ↑↓ history  ·  "help" for all cmds'],
+    ['tsys','──────────────────────────────────────────────'],
+  ];
+  boot.forEach((l,i) => setTimeout(() => tLine(l[0],l[1]), i*90));
+}
+
+function wireTerminal() {
+  const el = document.getElementById('cmd');
+  el.removeEventListener('keydown', onKey);
+  el.removeEventListener('input', onInput);
+  el.addEventListener('keydown', onKey);
+  el.addEventListener('input', onInput);
+  el.focus();
+}
+
+// ════════════════════════════════════════════════════════════
+//  STATE / RENDER
+// ════════════════════════════════════════════════════════════
+function updateState(players, startTime) {
+  if (!S.timerStart && startTime) { S.timerStart = startTime; startTimer(startTime); }
+  players.forEach(p => { S.players[p.id] = p; });
+  const me = S.players[S.myId];
+  if (me) updateHud(me);
+  renderNodes();
+  refreshTarget();
+}
+
+function updateHud(me) {
+  const ep = (me.energy/me.maxEnergy*100).toFixed(1);
+  const sp = (me.shield/me.maxShield*100).toFixed(1);
+  document.getElementById('ef').style.width = ep+'%';
+  document.getElementById('sf').style.width = sp+'%';
+  document.getElementById('ev').textContent = me.energy;
+  document.getElementById('sv').textContent = me.shield;
+  document.getElementById('hpv').textContent = me.hp;
+  document.getElementById('kv').textContent = me.kills;
+  document.getElementById('armv').textContent = me.difficulty;
+  document.getElementById('hpv').style.color = me.hp>60?'var(--g)':me.hp>30?'var(--orange)':'var(--red)';
+}
+
+function renderNodes() {
+  const list = document.getElementById('nc-list');
+  list.innerHTML = '';
+  Object.values(S.players).sort((a,b)=>a.joinOrder-b.joinOrder).forEach(p => {
+    const isMe = p.id===S.myId, isTgt = S.target===p.id;
+    const hpPct = (p.hp/p.maxHp*100).toFixed(1);
+    const shPct = (p.shield/p.maxShield*100).toFixed(1);
+    const hpCol = hpPct>60?'var(--g)':hpPct>30?'var(--orange)':'var(--red)';
+    const d = document.createElement('div');
+    d.className = 'nc'+(isMe?' nc-me':'')+(!p.alive?' nc-dead':'')+(isTgt&&!isMe?' nc-tgt':'');
+    d.innerHTML =
+      (isMe?'<span class="nc-badge tag-you">YOU</span>':'')+
+      (!p.alive?'<span class="nc-badge tag-dead">OFFLINE</span>':'')+
+      (isTgt&&!isMe?'<span class="nc-badge tag-tgt">TARGET</span>':'')+
+      '<div class="nc-alias" style="color:'+(isMe?'var(--cyan)':p.alive?'var(--g)':'#333')+'">'+p.alias+'</div>'+
+      '<div class="nc-ip">'+p.ip+':'+p.openPort+'</div>'+
+      '<div class="hbar"><div class="hfill" style="width:'+hpPct+'%;background:'+hpCol+'"></div></div>'+
+      '<div class="hbar" style="height:2px"><div class="hfill" style="width:'+shPct+'%;background:var(--cyan)"></div></div>'+
+      '<div class="nc-stats"><span>HP '+p.hp+'</span><span style="color:var(--cyan)">🛡'+p.shield+'</span><span style="color:var(--yellow)">✦'+p.kills+'</span>'+(p.difficulty>1?'<span style="color:var(--dg)">ARM:'+p.difficulty+'</span>':'')+'</div>';
+    if (!isMe && p.alive) d.onclick = () => lockTarget(p.id);
+    list.appendChild(d);
+  });
+}
+
+function lockTarget(id) {
+  S.target = id;
+  const p = S.players[id];
+  if (!p) return;
+  document.getElementById('tgt-alias').textContent = p.alias;
+  document.getElementById('tgt-meta').textContent = p.ip + '  HP:' + p.hp + '  SHIELD:' + p.shield + '/' + p.maxShield + '  ARM:' + p.difficulty;
+  tLine('twarn', 'TARGET LOCKED → ' + p.alias + ' [' + p.ip + '] | SHIELD ' + p.shield + '/' + p.maxShield + ' | ARM LVL ' + p.difficulty);
+  renderNodes();
+}
+
+function refreshTarget() {
+  if (!S.target) return;
+  const p = S.players[S.target];
+  if (!p || !p.alive) { S.target = null; document.getElementById('tgt-alias').textContent='—'; document.getElementById('tgt-meta').textContent=''; return; }
+  document.getElementById('tgt-alias').textContent = p.alias;
+  document.getElementById('tgt-meta').textContent = p.ip + '  HP:' + p.hp + '  SHIELD:' + p.shield + '/' + p.maxShield;
+}
+
+// ════════════════════════════════════════════════════════════
+//  ATTACKS
+// ════════════════════════════════════════════════════════════
+function buildAtkButtons() {
+  const wrap = document.getElementById('atk-btns');
+  wrap.innerHTML = '';
+  ATKS.forEach(atk => {
+    const btn = document.createElement('button');
+    btn.className = 'atk'; btn.id = 'ab-'+atk.id;
+    btn.innerHTML =
+      '<div class="atop"><span class="aname">'+atk.name+'</span><span class="acost">'+atk.cost+'⚡ '+atk.dmg+'dmg</span></div>'+
+      '<div class="adesc">'+atk.cmd+' · '+atk.cd+'s cooldown</div>'+
+      '<div class="cd-bar" id="cdb-'+atk.id+'"></div>';
+    btn.onclick = () => fireAtk(atk.id);
+    wrap.appendChild(btn);
+  });
+}
+
+function fireAtk(atkId) {
+  if (S.eliminated) return;
+  if (!S.target || !S.players[S.target]?.alive) {
+    tLine('terr', '✘ No target. Click a node or: target <alias>'); return;
+  }
+  const now = Date.now();
+  const cd = S.atkCooldowns[atkId] || 0;
+  if (now < cd) { tLine('twarn', '⚠ Cooldown: ' + Math.ceil((cd-now)/1000) + 's remaining'); return; }
+
+  const atk = ATK_MAP[atkId];
+  const me = S.players[S.myId];
+  if (me && me.energy < atk.cost) { tLine('terr', '✘ Need ' + atk.cost + '⚡ have ' + me.energy + '⚡'); return; }
+
+  tLine('tc', document.getElementById('prompt').textContent + atk.cmd + ' -target ' + S.players[S.target].ip);
+  sendMsg({ type:'attack', atkId, targetId: S.target });
+
+  // Optimistic cooldown
+  S.atkCooldowns[atkId] = now + atk.cd * 1000;
+  animCd(atkId, atk.cd * 1000);
+}
+
+function animCd(atkId, ms) {
+  const btn = document.getElementById('ab-'+atkId);
+  const bar = document.getElementById('cdb-'+atkId);
+  if (!btn||!bar) return;
+  btn.disabled = true;
+  const start = Date.now();
+  const t = setInterval(() => {
+    const pct = Math.min(100,(Date.now()-start)/ms*100);
+    bar.style.width = pct+'%';
+    if (pct>=100) { clearInterval(t); btn.disabled=false; bar.style.width='0%'; }
+  }, 80);
+}
+
+// ════════════════════════════════════════════════════════════
+//  HACK MODAL
+// ════════════════════════════════════════════════════════════
+function showHackModal(msg) {
+  const modal = document.getElementById('hack-modal');
+  const log   = document.getElementById('hm-log');
+  const bar   = document.getElementById('hm-bar');
+  const stat  = document.getElementById('hm-stat');
+  document.getElementById('hm-title').textContent = '▶ ' + (ATK_MAP[msg.atkName]?.name||msg.atkName) + '  →  ' + msg.targetAlias + ' [' + msg.targetIp + ']';
+  log.innerHTML=''; bar.style.width='0%'; modal.classList.add('show');
+
+  const phases = msg.phases, total = msg.durationMs, start = Date.now();
+  let idx=0, hexDone=false;
+
+  const addLog = txt => {
+    const s = document.createElement('span');
+    s.className='tl '+(txt.startsWith('$')?'tc':txt.includes('\\x')?'thex':txt.startsWith('[+]')?'tok':txt.startsWith('[!]')?'terr':'tsys');
+    s.textContent=txt; log.appendChild(s); log.scrollTop=log.scrollHeight;
+  };
+
+  const tick = setInterval(() => {
+    const pct = Math.min(100,(Date.now()-start)/total*100);
+    bar.style.width = pct+'%';
+    const exp = Math.floor(pct/100*phases.length);
+    while (idx<exp && idx<phases.length) addLog(phases[idx++]);
+    if (pct>55&&!hexDone) { hexDone=true; addLog(hexDump()); }
+    stat.textContent = pct<25?'INITIATING...':pct<50?'BYPASSING FIREWALL...':pct<78?'INJECTING PAYLOAD...':'FINALIZING...';
+    if (pct>=100) { clearInterval(tick); stat.textContent='EXPLOIT DELIVERED ✓'; setTimeout(()=>modal.classList.remove('show'),400); }
+  },80);
+}
+
+function hexDump() {
+  const b=Array.from({length:16},()=>Math.floor(Math.random()*256).toString(16).padStart(2,'0'));
+  const a=b.map(x=>{const n=parseInt(x,16);return n>=32&&n<127?String.fromCharCode(n):'.'}).join('');
+  return '0x'+rHex(4)+': '+b.join(' ')+'  |'+a+'|';
+}
+
+// ════════════════════════════════════════════════════════════
+//  COMBAT EVENTS
+// ════════════════════════════════════════════════════════════
+function onAttackResult(msg) {
+  if (msg.attackerId===S.myId) {
+    tLine('tok','✦ '+(ATK_MAP[msg.atkId]?.name||msg.atkId)+' → '+msg.targetAlias+': '+msg.totalDmg+' dmg (shield:-'+msg.shieldDmg+' hp:-'+msg.hpDmg+')');
+  } else if (msg.targetId===S.myId) {
+    tLine('terr','▼ INCOMING '+(ATK_MAP[msg.atkId]?.name||msg.atkId)+' from '+msg.attackerAlias+': -'+msg.totalDmg+' dmg');
+    spawnIncoming(5);
+  }
+  addFeed('<span style="color:var(--cyan)">'+msg.attackerAlias+'</span> → <span style="color:var(--orange)">'+msg.targetAlias+'</span> via <span style="color:var(--yellow)">'+(ATK_MAP[msg.atkId]?.name||msg.atkId)+'</span> <span style="color:var(--red)">-'+msg.totalDmg+'dmg</span>');
+}
+
+function onEliminated(msg) {
+  if (msg.killerId===S.myId) {
+    tLine('tok','◆ '+msg.alias+' ['+msg.ip+'] ELIMINATED');
+    addFeed('<span style="color:var(--g)">💀 '+msg.alias+' ELIMINATED by YOU</span>');
+  } else {
+    tLine('twarn','⚠ '+msg.alias+' eliminated by '+msg.killerAlias);
+    addFeed('<span style="color:var(--dg)">💀 '+msg.alias+' eliminated by '+msg.killerAlias+'</span>');
+  }
+}
+
+function triggerGameOver(killerAlias) {
+  S.eliminated = true;
+  clearInterval(S.timerInterval);
+  setTimeout(()=>{
+    document.getElementById('go-sub').textContent = 'TERMINATED BY '+killerAlias.toUpperCase();
+    document.getElementById('gameover').style.display='flex';
+  },600);
+}
+
+function triggerWin(alias) {
+  clearInterval(S.timerInterval);
+  setTimeout(()=>{
+    document.getElementById('win-sub').textContent = alias+' — ALL NODES COMPROMISED';
+    document.getElementById('winscreen').style.display='flex';
+  },500);
+}
+
+// ════════════════════════════════════════════════════════════
+//  TERMINAL
+// ════════════════════════════════════════════════════════════
+const ALL_CMDS = ['help','scan','status','target','whois','nmap','sqlmap','exploit','flood','arpspoof','implant','chat','history','clear','hex','ifconfig','netstat'];
+
+function tLine(cls, text) {
+  const out = document.getElementById('term-out');
+  const s = document.createElement('span');
+  s.className='tl '+cls; s.textContent=text;
+  out.appendChild(s); out.scrollTop=out.scrollHeight;
+}
+
+function onInput() {
+  const base = document.getElementById('cmd').value.split(' ')[0].toLowerCase();
+  document.getElementById('hint-bar').textContent = HINTS[base] ? '▸ '+HINTS[base] : '';
+}
+
+function onKey(e) {
+  const inp = document.getElementById('cmd');
+  if (e.key==='Tab') {
+    e.preventDefault();
+    const v=inp.value.toLowerCase(), m=ALL_CMDS.find(c=>c.startsWith(v)&&c!==v);
+    if (m) inp.value=m;
+  } else if (e.key==='Enter') {
+    const raw=inp.value.trim(); if (!raw) return;
+    S.cmdHistory.unshift(raw); S.histIdx=-1; inp.value='';
+    document.getElementById('hint-bar').textContent='';
+    tLine('tc', document.getElementById('prompt').textContent+raw);
+    runCmd(raw);
+  } else if (e.key==='ArrowUp') {
+    e.preventDefault();
+    if (S.histIdx<S.cmdHistory.length-1) { S.histIdx++; inp.value=S.cmdHistory[S.histIdx]; }
+  } else if (e.key==='ArrowDown') {
+    e.preventDefault();
+    if (S.histIdx>0) { S.histIdx--; inp.value=S.cmdHistory[S.histIdx]; }
+    else { S.histIdx=-1; inp.value=''; }
+  }
+}
+
+function runCmd(raw) {
+  if (S.eliminated) { tLine('terr','CONNECTION TERMINATED'); return; }
+  const parts=raw.trim().split(/\s+/), cmd=parts[0].toLowerCase();
+  if (CMD_MAP[cmd]) { fireAtk(CMD_MAP[cmd]); return; }
+
+  switch(cmd) {
+    case 'help':
+      [['tsys','╔─ COMMANDS ────────────────────────────────────'],
+       ['tok', '║ help              this menu'],
+       ['tok', '║ scan              list all nodes + stats'],
+       ['tok', '║ status            your node details'],
+       ['tok', '║ target <alias>    lock a target'],
+       ['tok', '║ whois <alias>     profile a node'],
+       ['tok', '║ ifconfig          network info'],
+       ['tok', '║ netstat           active connections'],
+       ['tok', '║ hex               dump hex payload'],
+       ['tok', '║ chat <msg>        broadcast to all'],
+       ['tok', '║ history           past commands'],
+       ['tok', '║ clear             clear terminal'],
+       ['tsys','╠─ ATTACK COMMANDS ─────────────────────────────'],
+       ['tc',  '║ nmap -sV <ip>              PORT SCAN      8⚡'],
+       ['tc',  '║ sqlmap -u <ip>/login       SQL INJECTION 20⚡'],
+       ['tc',  '║ exploit --target <ip>      BUF OVERFLOW  35⚡'],
+       ['tc',  '║ flood --type syn <ip>      DDoS FLOOD    22⚡'],
+       ['tc',  '║ arpspoof -t <ip>           MiTM          30⚡'],
+       ['tc',  '║ implant --host <ip>        ROOTKIT       60⚡'],
+       ['tsys','╚───────────────────────────────────────────────'],
+      ].forEach(l=>tLine(l[0],l[1]));
+      break;
+
+    case 'scan':
+      tLine('tsys','$ nmap -sn 10.0.0.0/24');
+      Object.values(S.players).sort((a,b)=>a.joinOrder-b.joinOrder).forEach(p=>{
+        tLine(p.alive?'tok':'tsys','  '+p.ip.padEnd(16)+p.alias.padEnd(14)+'HP:'+String(p.hp).padEnd(4)+'SHIELD:'+p.shield+'/'+p.maxShield+'  ARM:'+p.difficulty+(p.id===S.myId?' <-- YOU':'')+(p.alive?'':'  [OFFLINE]'));
+      });
+      break;
+
+    case 'status': {
+      const me=S.players[S.myId]; if(!me) break;
+      tLine('tsys','── NODE STATUS ───────────────────');
+      tLine('tok','  ALIAS  : '+me.alias);
+      tLine('tok','  IP     : '+me.ip+':'+me.openPort);
+      tLine('tok','  HP     : '+me.hp+'/'+me.maxHp);
+      tLine('tok','  SHIELD : '+me.shield+'/'+me.maxShield);
+      tLine('tok','  ENERGY : '+me.energy+'/'+me.maxEnergy);
+      tLine('tok','  KILLS  : '+me.kills+'  ARMOR LVL: '+me.difficulty);
+      const t=S.target&&S.players[S.target];
+      tLine('tok','  TARGET : '+(t?t.alias+' ['+t.ip+']':'NONE'));
+      break;
+    }
+
+    case 'target': {
+      const alias=parts.slice(1).join(' ').toUpperCase(); if(!alias){tLine('terr','Usage: target <alias>');break;}
+      const p=Object.values(S.players).find(p=>p.alias.toUpperCase()===alias&&p.alive&&p.id!==S.myId);
+      if(!p){tLine('terr','Node "'+alias+'" not found or offline.');break;}
+      lockTarget(p.id); break;
+    }
+
+    case 'whois': {
+      const alias=parts.slice(1).join(' ').toUpperCase();
+      const p=Object.values(S.players).find(p=>p.alias.toUpperCase()===alias);
+      if(!p){tLine('terr','Unknown: '+alias);break;}
+      tLine('tsys','── WHOIS ─────────────────────────');
+      tLine('tok','  ALIAS  : '+p.alias);
+      tLine('tok','  IP     : '+p.ip+':'+p.openPort);
+      tLine('tok','  STATUS : '+(p.alive?'ONLINE':'ELIMINATED'));
+      tLine('tok','  ARMOR  : Lv '+p.difficulty+' (+'+((p.difficulty-1)*28)+'% dmg reduction)');
+      tLine('tok','  SHIELD : '+p.shield+'/'+p.maxShield);
+      tLine('tok','  KILLS  : '+p.kills);
+      break;
+    }
+
+    case 'ifconfig':
+      tLine('tok','eth0  inet '+S.myIp+'  netmask 255.255.255.0  broadcast 10.0.0.255');
+      tLine('tok','      ether '+rMac()+'  txqueuelen 1000');
+      tLine('tok','lo    inet 127.0.0.1  netmask 255.0.0.0');
+      break;
+
+    case 'netstat':
+      tLine('tsys','Proto  Local Address            Foreign Address      State');
+      Object.values(S.players).filter(p=>p.alive&&p.id!==S.myId).forEach(p=>{
+        tLine('tok','tcp    '+S.myIp+':'+ri(40000,65000)+'  '+p.ip+':'+p.openPort+'  ESTABLISHED');
+      });
+      break;
+
+    case 'hex':
+      tLine('tsys','Shellcode payload (msfvenom):');
+      for(let i=0;i<4;i++) tLine('thex',hexDump());
+      break;
+
+    case 'chat': {
+      const m=parts.slice(1).join(' '); if(!m){tLine('terr','Usage: chat <message>');break;}
+      sendMsg({type:'chat',text:m}); break;
+    }
+
+    case 'history':
+      S.cmdHistory.slice(0,15).forEach((c,i)=>tLine('tsys','  '+String(i+1).padStart(3)+'  '+c));
+      break;
+
+    case 'clear':
+      document.getElementById('term-out').innerHTML=''; break;
+
+    default:
+      tLine('terr','bash: '+cmd+': command not found');
+      tLine('tsys',"type 'help' for available commands");
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+//  NETWORK MAP CANVAS
+// ════════════════════════════════════════════════════════════
+let netCv, netCtx, nodePos={};
+
+function initNetCanvas() {
+  netCv=document.getElementById('net-cv');
+  netCtx=netCv.getContext('2d');
+  const resize=()=>{ const w=document.getElementById('map-wrap'); netCv.width=w.clientWidth; netCv.height=w.clientHeight; };
+  resize(); window.addEventListener('resize',resize);
+  (function frame(){drawNet();requestAnimationFrame(frame);})();
+}
+
+function drawNet() {
+  if(!netCtx||!netCv.width) return;
+  const ctx=netCtx, w=netCv.width, h=netCv.height;
+  ctx.clearRect(0,0,w,h);
+  const players=Object.values(S.players), cx=w/2, cy=h/2;
+
+  players.forEach((p,i)=>{
+    if(!nodePos[p.id]){
+      const a=(i/players.length)*Math.PI*2-Math.PI/2, r=Math.min(w,h)*0.36;
+      nodePos[p.id]={x:cx+Math.cos(a)*r, y:cy+Math.sin(a)*r};
+    }
+  });
+
+  // Hub
+  ctx.strokeStyle='#0f2a0f'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.arc(cx,cy,5,0,Math.PI*2); ctx.stroke();
+  ctx.fillStyle='#003300'; ctx.fill();
+  ctx.fillStyle='#224422'; ctx.font='8px Share Tech Mono'; ctx.textAlign='center';
+  ctx.fillText('HUB',cx,cy+14);
+
+  players.forEach(p=>{
+    const n=nodePos[p.id]; if(!n) return;
+    const isMe=p.id===S.myId, isTgt=S.target===p.id;
+    const col=!p.alive?'#111':isTgt?'#ff2244':isMe?'#00ffe0':'#00ff41';
+
+    ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(n.x,n.y);
+    ctx.strokeStyle=!p.alive?'#0a0a0a':isTgt?'rgba(255,34,68,.5)':isMe?'rgba(0,255,224,.3)':'rgba(0,255,65,.18)';
+    ctx.lineWidth=isTgt?1.5:1; ctx.setLineDash(p.alive?[]:[3,5]); ctx.stroke(); ctx.setLineDash([]);
+
+    ctx.beginPath(); ctx.arc(n.x,n.y,5,0,Math.PI*2);
+    ctx.strokeStyle=col; ctx.lineWidth=isTgt?2:1; ctx.stroke();
+    if(p.alive){ctx.fillStyle=col+'22';ctx.fill();}
+
+    ctx.fillStyle=!p.alive?'#333':col; ctx.font='8px Share Tech Mono'; ctx.textAlign='center';
+    ctx.fillText(p.alias,n.x,n.y-9);
+    ctx.fillStyle='#1a3a1a'; ctx.fillText(p.ip,n.x,n.y+17);
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+//  PACKET CANVAS
+// ════════════════════════════════════════════════════════════
+let pktCv, pktCtx, pkts=[];
+
+function initPktCanvas() {
+  pktCv=document.getElementById('pkt-cv');
+  pktCtx=pktCv.getContext('2d');
+  const resize=()=>{ pktCv.width=pktCv.parentElement.clientWidth; pktCv.height=pktCv.parentElement.clientHeight; };
+  resize(); window.addEventListener('resize',resize);
+  setInterval(()=>{ if(Math.random()<.55) spawnPkt('ambient'); },220);
+  (function frame(){drawPkts();requestAnimationFrame(frame);})();
+}
+
+function spawnPkt(type) {
+  if(!pktCv) return;
+  pkts.push({x:0,y:14+Math.random()*(pktCv.height-28),
+    speed:type==='attack'?4.5+Math.random()*3:1.2+Math.random()*2,
+    col:type==='attack'?'#ff2244':'#0a3a0a',
+    label:type==='attack'?'EXPLOIT':['SYN','DATA','RST','ACK'][ri(0,3)]});
+}
+
+function spawnIncoming(n) { for(let i=0;i<n;i++) setTimeout(()=>spawnPkt('attack'),i*70); }
+
+function drawPkts() {
+  if(!pktCtx) return;
+  pktCtx.fillStyle='rgba(1,9,1,0.4)'; pktCtx.fillRect(0,0,pktCv.width,pktCv.height);
+  pkts=pkts.filter(p=>p.x<pktCv.width+60);
+  pkts.forEach(p=>{
+    p.x+=p.speed;
+    pktCtx.fillStyle=p.col; pktCtx.fillRect(p.x,p.y,6,2);
+    pktCtx.font='7px Share Tech Mono'; pktCtx.fillStyle=p.col+'88';
+    pktCtx.fillText(p.label,p.x+8,p.y+2);
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+//  TIMER + FEED + UTILS
+// ════════════════════════════════════════════════════════════
+function startTimer(startTime) {
+  clearInterval(S.timerInterval);
+  S.timerInterval=setInterval(()=>{
+    const el=Math.floor((Date.now()-startTime)/1000);
+    document.getElementById('hdr-timer').textContent=String(Math.floor(el/60)).padStart(2,'0')+':'+String(el%60).padStart(2,'0');
+  },500);
+}
+
+function addFeed(html) {
+  const feed=document.getElementById('feed');
+  const d=document.createElement('div'); d.className='fi';
+  const ts=new Date(), t=[ts.getHours(),ts.getMinutes(),ts.getSeconds()].map(n=>String(n).padStart(2,'0')).join(':');
+  d.innerHTML='<span class="ftime">['+t+']</span> '+html;
+  feed.insertBefore(d,feed.firstChild);
+  while(feed.children.length>30) feed.removeChild(feed.lastChild);
+}
+
+function ri(a,b){return Math.floor(Math.random()*(b-a+1))+a}
+function rHex(n){let s='';for(let i=0;i<n;i++)s+=Math.floor(Math.random()*16).toString(16);return s}
+function rMac(){return Array.from({length:6},()=>rHex(2)).join(':')}
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+
+document.addEventListener('click',e=>{
+  if(document.getElementById('app').style.display!=='none'&&!e.target.closest('.nc')&&!e.target.closest('.atk'))
+    document.getElementById('cmd').focus();
+});
+</script>
+</body>
+</html>
